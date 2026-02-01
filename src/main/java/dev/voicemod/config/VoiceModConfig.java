@@ -18,7 +18,7 @@ public final class VoiceModConfig {
     private double attenuationFactor = 0.02;
     private boolean enable3DAudio = true;
     private int websocketPort = 25566;
-    private String backendUrl = "http://localhost:25566";
+    private String backendUrl = "https://voicemod.onrender.com";
 
     public VoiceModConfig(@Nonnull Path pluginDir) {
         this.configPath = pluginDir.resolve(CONFIG_FILE);
@@ -36,7 +36,7 @@ public final class VoiceModConfig {
             attenuationFactor = Double.parseDouble(props.getProperty("voice.attenuation", "0.02"));
             enable3DAudio = Boolean.parseBoolean(props.getProperty("voice.3d.enabled", "true"));
             websocketPort = Integer.parseInt(props.getProperty("websocket.port", "25566"));
-            backendUrl = props.getProperty("backend.url", "http://localhost:25566");
+            backendUrl = props.getProperty("backend.url", "https://voicemod.onrender.com");
         } catch (Exception e) {
             // Usando defaults em caso de erro
         }

@@ -91,4 +91,8 @@ public final class VoiceModPlugin extends JavaPlugin {
     public VoiceModConfig getConfig() {
         return config;
     }
+
+    public VoiceBackendConnector getBackendConnector() {
+        return backendConnector;
+    }
 }

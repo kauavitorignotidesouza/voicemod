@@ -72,8 +72,21 @@ public final class VoiceModCommand extends AbstractCommand {
 
     private CompletableFuture<Void> handleStatus(CommandContext context, com.hypixel.hytale.server.core.command.system.CommandSender sender) {
         var cfg = plugin.getConfig();
-        sender.sendMessage(Message.raw("§aVoiceMod Status §7- Raio: §f" + cfg.getVoiceRadius()
-            + " blocos §7| Áudio 3D: §f" + (cfg.isEnable3DAudio() ? "Ativado" : "Desativado")));
+        var conn = plugin.getBackendConnector();
+        sender.sendMessage(Message.raw("§aVoiceMod Status"));
+        sender.sendMessage(Message.raw("§7 Raio: §f" + cfg.getVoiceRadius() + " blocos §7| Áudio 3D: §f" + (cfg.isEnable3DAudio() ? "Ativado" : "Desativado")));
+        sender.sendMessage(Message.raw("§7 Backend: §f" + cfg.getBackendUrl()));
+        if (conn != null) {
+            long last = conn.getLastSuccessMs();
+            if (last > 0) {
+                long secAgo = (System.currentTimeMillis() - last) / 1000;
+                sender.sendMessage(Message.raw("§7 Último envio: §a" + secAgo + "s atrás §7(" + conn.getLastPlayersSent() + " jogadores)"));
+            } else if (conn.getLastError() != null) {
+                sender.sendMessage(Message.raw("§7 Conexão: §c" + conn.getLastError()));
+            } else {
+                sender.sendMessage(Message.raw("§7 Conexão: §eaguardando jogadores..."));
+            }
+        }
         return CompletableFuture.completedFuture(null);
     }
 
