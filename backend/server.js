@@ -117,7 +117,6 @@ function sendNearbyPlayers(playerId, radius = 32) {
     }
   }
 
-  const client = clients.get(playerId);
   if (client?.ws.readyState === 1) {
     client.ws.send(JSON.stringify({
       type: 'nearby',
