@@ -52,21 +52,21 @@ public final class VoiceModCommand extends AbstractCommand {
 
     private CompletableFuture<Void> handleHelp(CommandContext context, com.hypixel.hytale.server.core.command.system.CommandSender sender) {
         var cfg = plugin.getConfig();
-        sender.sendMessage(Message.raw("§aVoiceMod §7- Voice chat com proximidade"));
-        sender.sendMessage(Message.raw("§e/voicemod raio [--blocos N] §7- Raio atual: " + cfg.getVoiceRadius()));
-        sender.sendMessage(Message.raw("§e/voicemod status §7- Mostra status"));
-        sender.sendMessage(Message.raw("§e/voicemod reload §7- Recarrega config"));
-        sender.sendMessage(Message.raw("§e/voicemod uuid §7- Mostra seu UUID para o cliente de voz"));
+        sender.sendMessage(Message.raw("VoiceMod - Voice chat com proximidade"));
+        sender.sendMessage(Message.raw("/voicemod raio [--blocos N] - Raio atual: " + cfg.getVoiceRadius()));
+        sender.sendMessage(Message.raw("/voicemod status - Mostra status"));
+        sender.sendMessage(Message.raw("/voicemod reload - Recarrega config"));
+        sender.sendMessage(Message.raw("/voicemod uuid - Mostra seu UUID para o cliente de voz"));
         return CompletableFuture.completedFuture(null);
     }
 
     private CompletableFuture<Void> handleUuid(CommandContext context, com.hypixel.hytale.server.core.command.system.CommandSender sender) {
         var uuid = sender.getUuid();
         if (uuid != null) {
-            sender.sendMessage(Message.raw("§aSeu UUID: §f" + uuid.toString()));
-            sender.sendMessage(Message.raw("§7Use no cliente de voz: §fhttps://voicemod.onrender.com"));
+            sender.sendMessage(Message.raw("Seu UUID: " + uuid.toString()));
+            sender.sendMessage(Message.raw("Use no cliente de voz: https://voicemod.onrender.com"));
         } else {
-            sender.sendMessage(Message.raw("§cNão foi possível obter seu UUID."));
+            sender.sendMessage(Message.raw("Não foi possível obter seu UUID."));
         }
         return CompletableFuture.completedFuture(null);
     }
@@ -79,25 +79,25 @@ public final class VoiceModCommand extends AbstractCommand {
         }
         plugin.getConfig().setVoiceRadius(radius);
         plugin.getConfig().save();
-        sender.sendMessage(Message.raw("§aRaio de voz definido para " + radius + " blocos."));
+        sender.sendMessage(Message.raw("Raio de voz definido para " + radius + " blocos."));
         return CompletableFuture.completedFuture(null);
     }
 
     private CompletableFuture<Void> handleStatus(CommandContext context, com.hypixel.hytale.server.core.command.system.CommandSender sender) {
         var cfg = plugin.getConfig();
         var conn = plugin.getBackendConnector();
-        sender.sendMessage(Message.raw("§aVoiceMod Status"));
-        sender.sendMessage(Message.raw("§7 Raio: §f" + cfg.getVoiceRadius() + " blocos §7| Áudio 3D: §f" + (cfg.isEnable3DAudio() ? "Ativado" : "Desativado")));
-        sender.sendMessage(Message.raw("§7 Backend: §f" + cfg.getBackendUrl()));
+        sender.sendMessage(Message.raw("VoiceMod Status"));
+        sender.sendMessage(Message.raw("Raio: " + cfg.getVoiceRadius() + " blocos | Áudio 3D: " + (cfg.isEnable3DAudio() ? "Ativado" : "Desativado")));
+        sender.sendMessage(Message.raw("Backend: " + cfg.getBackendUrl()));
         if (conn != null) {
             long last = conn.getLastSuccessMs();
             if (last > 0) {
                 long secAgo = (System.currentTimeMillis() - last) / 1000;
-                sender.sendMessage(Message.raw("§7 Último envio: §a" + secAgo + "s atrás §7(" + conn.getLastPlayersSent() + " jogadores)"));
+                sender.sendMessage(Message.raw("Último envio: " + secAgo + "s atrás (" + conn.getLastPlayersSent() + " jogadores)"));
             } else if (conn.getLastError() != null) {
-                sender.sendMessage(Message.raw("§7 Conexão: §c" + conn.getLastError()));
+                sender.sendMessage(Message.raw("Conexão: " + conn.getLastError()));
             } else {
-                sender.sendMessage(Message.raw("§7 Conexão: §eaguardando jogadores..."));
+                sender.sendMessage(Message.raw("Conexão: aguardando jogadores..."));
             }
         }
         return CompletableFuture.completedFuture(null);
@@ -105,7 +105,7 @@ public final class VoiceModCommand extends AbstractCommand {
 
     private CompletableFuture<Void> handleReload(CommandContext context, com.hypixel.hytale.server.core.command.system.CommandSender sender) {
         plugin.getConfig().load();
-        sender.sendMessage(Message.raw("§aConfig do VoiceMod recarregada."));
+        sender.sendMessage(Message.raw("Config do VoiceMod recarregada."));
         return CompletableFuture.completedFuture(null);
     }
 }

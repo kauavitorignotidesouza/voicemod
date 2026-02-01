@@ -10,6 +10,7 @@
   const nearbyList = document.getElementById('nearbyList');
 
   let ws = null;
+  let myPlayerId = null;
   let localStream = null;
   const peerConnections = new Map(); // playerId -> RTCPeerConnection
   const remoteAudios = new Map();    // playerId -> HTMLAudioElement
@@ -60,6 +61,7 @@
       iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'turn:freeturn.net:3478', username: 'free', credential: 'free' },
       ]
     });
 
@@ -68,16 +70,25 @@
     }
 
     pc.ontrack = (e) => {
+      const stream = e.streams[0];
+      if (!stream || stream.getAudioTracks().length === 0) return;
       const audio = document.createElement('audio');
       audio.autoplay = true;
       audio.playsInline = true;
+      audio.muted = false;
       audio.volume = volume;
-      if (e.streams[0]) {
-        audio.srcObject = e.streams[0];
-      }
+      audio.srcObject = stream;
       document.body.appendChild(audio);
       audio.play().catch(() => {});
       remoteAudios.set(remoteId, audio);
+    };
+
+    pc.onconnectionstatechange = () => {
+      if (pc.connectionState === 'connected') {
+        console.log('WebRTC conectado com', remoteId);
+      } else if (pc.connectionState === 'failed') {
+        console.warn('WebRTC falhou com', remoteId);
+      }
     };
 
     pc.onicecandidate = (e) => {
@@ -127,7 +138,7 @@
   }
 
   async function connectToNearby(nearby) {
-    if (!nearby || nearby.length === 0) return;
+    if (!nearby || nearby.length === 0 || !myPlayerId) return;
     if (!localStream) await initMicrophone();
 
     for (const p of nearby) {
@@ -136,6 +147,9 @@
         if (audio) audio.volume = p.volume || 1;
         continue;
       }
+
+      // Apenas o jogador com ID "menor" inicia a oferta (evita conexões duplicadas)
+      if (myPlayerId.localeCompare(p.id) >= 0) continue;
 
       const pc = createPeerConnection(p.id, p.volume || 1);
       const offer = await pc.createOffer();
@@ -158,6 +172,7 @@
 
   async function connect() {
     const playerId = playerIdInput.value.trim().toLowerCase();
+    myPlayerId = playerId;
     if (!playerId) {
       setStatus('Digite seu UUID', true);
       return;
@@ -204,6 +219,7 @@
           const msg = JSON.parse(e.data);
           switch (msg.type) {
             case 'joined':
+              myPlayerId = playerId;
               const db = msg.debug || {};
               if (db.hasPosition) {
                 setStatus('Conectado! Posição detectada. ' + (db.totalPlayers || 0) + ' jogador(es) no servidor.');
@@ -245,6 +261,7 @@
       };
 
       ws.onclose = () => {
+        myPlayerId = null;
         setStatus('Desconectado');
         btnConnect.disabled = false;
         btnConnect.style.display = 'block';
