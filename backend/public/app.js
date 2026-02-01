@@ -29,9 +29,10 @@
   const peerConnections = new Map();
   const remoteAudios = new Map();
   let lastNearby = [];
-  const errorLog = [];           // últimos erros
+  const errorLog = [];
   const MAX_ERRORS = 10;
   let pttActive = false;
+  const nearbySeenAt = new Map(); // id -> timestamp (para fallback)
 
   const WS_URL = (location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + location.host;
   const PTT_KEY = 'v';
@@ -213,6 +214,12 @@
 
   async function handleOffer(fromId, sdp, volume) {
     try {
+      const existing = peerConnections.get(fromId);
+      if (existing && existing.signalingState !== 'stable') {
+        existing.close();
+        peerConnections.delete(fromId);
+        remoteAudios.delete(fromId);
+      }
       const pc = createPeerConnection(fromId, volume);
       await pc.setRemoteDescription(new RTCSessionDescription(sdp));
       const answer = await pc.createAnswer();
@@ -254,15 +261,18 @@
     if (!nearby || nearby.length === 0 || !myPlayerId) return;
     if (!localStream) await initMicrophone();
 
+    const now = Date.now();
     for (const p of nearby) {
+      if (!nearbySeenAt.has(p.id)) nearbySeenAt.set(p.id, now);
       if (peerConnections.has(p.id)) {
         const audio = remoteAudios.get(p.id);
         if (audio) audio.volume = p.volume || 1;
         continue;
       }
 
-      // Apenas o jogador com ID "menor" inicia a oferta (evita conexões duplicadas)
-      if (myPlayerId.localeCompare(p.id) >= 0) continue;
+      const shouldInitiate = myPlayerId.localeCompare(p.id) < 0;
+      const fallback = (now - nearbySeenAt.get(p.id)) > 3000;
+      if (!shouldInitiate && !fallback) continue;
 
       const pc = createPeerConnection(p.id, p.volume || 1);
       const offer = await pc.createOffer();
@@ -272,13 +282,13 @@
       }
     }
 
-    // Remove conexões de jogadores que saíram
     const ids = new Set(nearby.map(x => x.id));
     for (const [id, pc] of peerConnections) {
       if (!ids.has(id)) {
         pc.close();
         peerConnections.delete(id);
         remoteAudios.delete(id);
+        nearbySeenAt.delete(id);
       }
     }
   }
@@ -349,7 +359,12 @@
               updateNearby(msg.players);
               connectToNearby(msg.players);
               if (msg.players && msg.players.length > 0) {
-                setStatus('Conectado. ' + msg.players.length + ' jogador(es) próximo(s) - voz ativa.');
+                const connCount = [...peerConnections.values()].filter(pc => pc.connectionState === 'connected').length;
+                if (connCount > 0) {
+                  setStatus('Conectado. ' + msg.players.length + ' jogador(es) próximo(s) - voz ativa.');
+                } else {
+                  setStatus('Conectado. ' + msg.players.length + ' jogador próximo(s). O outro jogador precisa ter o cliente web aberto e conectado.');
+                }
               } else if (msg.debug && !msg.debug.hasPosition) {
                 const url = location.origin + '/status';
                 setStatus('Posição não detectada. Abra ' + url + ' para ver os IDs que o backend recebeu.');
@@ -377,6 +392,7 @@
 
       ws.onclose = () => {
         myPlayerId = null;
+        nearbySeenAt.clear();
         setPTT(false);
         btnPTT.disabled = true;
         setStatus('Desconectado');
