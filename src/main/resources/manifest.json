@@ -1,0 +1,13 @@
+{
+  "Group": "dev.voicemod",
+  "Name": "VoiceMod",
+  "Version": "1.0.0",
+  "Description": "Voice chat com proximidade e áudio 3D",
+  "Main": "dev.voicemod.VoiceModPlugin",
+  "ServerVersion": "*",
+  "Dependencies": {},
+  "OptionalDependencies": {},
+  "DisabledByDefault": false,
+  "IncludesAssetPack": false,
+  "SubPlugins": []
+}

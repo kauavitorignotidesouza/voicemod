@@ -1,0 +1,6 @@
+Coloque HytaleServer.jar nesta pasta para compilar o plugin.
+
+Onde obter:
+- Do seu servidor Hytale (pasta onde está o servidor)
+- Download: https://cdn.hytale.com/HytaleServer.jar
+- Instalação do jogo: %APPDATA%\Hytale\install\release\package\game\latest\Server\

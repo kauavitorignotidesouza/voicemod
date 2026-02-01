@@ -1,0 +1,51 @@
+plugins {
+    id 'java'
+}
+
+group = 'dev.voicemod'
+version = '1.0.0'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+// Hytale Server API não está no Maven público - use JAR local
+// Copie HytaleServer.jar para libs/ (do seu servidor Hytale ou da instalação do jogo)
+def hytaleJar = file("libs/HytaleServer.jar")
+if (!hytaleJar.exists()) {
+    // Tenta pasta padrão do Hytale no Windows
+    def appDataJar = file("${System.getenv('APPDATA')}/Hytale/install/release/package/game/latest/Server/HytaleServer.jar")
+    hytaleJar = appDataJar.exists() ? appDataJar : hytaleJar
+}
+
+dependencies {
+    if (hytaleJar.exists()) {
+        compileOnly(files(hytaleJar))
+    } else {
+        throw new GradleException("""
+            HytaleServer.jar não encontrado!
+            
+            1. Crie a pasta 'libs' no projeto
+            2. Copie HytaleServer.jar para libs/
+               - Do servidor: pasta onde o servidor Hytale está
+               - Ou baixe: https://cdn.hytale.com/HytaleServer.jar
+               - Ou da instalação: %APPDATA%/Hytale/install/.../Server/
+        """.stripIndent().trim())
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+jar {
+    archiveBaseName.set('voicemod')
+    archiveClassifier.set('')
+    archiveVersion.set(project.version.toString())
+}

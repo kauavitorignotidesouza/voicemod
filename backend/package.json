@@ -1,0 +1,14 @@
+{
+  "name": "voicemod-backend",
+  "version": "1.0.0",
+  "description": "Backend de voice chat com proximidade e áudio 3D - signaling WebRTC",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}
