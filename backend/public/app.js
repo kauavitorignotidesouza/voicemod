@@ -176,6 +176,7 @@
         { urls: 'stun:stun4.l.google.com:19302' },
         { urls: 'turn:freeturn.net:3478', username: 'free', credential: 'free' },
         { urls: 'turns:freeturn.net:5349', username: 'free', credential: 'free' },
+        { urls: 'turn:freestun.net:3478', username: 'free', credential: 'free' },
       ]
     });
     const pendingIce = [];
@@ -198,25 +199,32 @@
       remoteAudios.set(remoteId, audio);
     };
 
+    const iceStats = { host: 0, srflx: 0, relay: 0 };
     pc.onconnectionstatechange = () => {
       updateStatusPanel();
       if (pc.connectionState === 'connected') {
         console.log('WebRTC conectado com', remoteId);
       } else if (pc.connectionState === 'failed') {
-        logError('WebRTC falhou - redes diferentes. TURN pode estar lento; aguarde ou usem mesma Wi‑Fi.');
+        const st = `(${iceStats.host}h ${iceStats.srflx}s ${iceStats.relay}r)`;
+        if (iceStats.relay === 0) {
+          logError('WebRTC falhou ' + st + ' - TURN não conectou. Rede bloqueia?');
+        } else {
+          logError('WebRTC falhou ' + st + ' - ICE não encontrou caminho.');
+        }
       }
     };
-
-    pc.oniceconnectionstatechange = () => {
-      if (pc.iceConnectionState === 'failed') {
-        logError('ICE falhou - ambos na mesma rede Wi-Fi?');
-      }
-    };
-
     pc.onicecandidate = (e) => {
       if (e.candidate) {
+        const t = e.candidate.type;
+        if (t === 'host') iceStats.host++;
+        else if (t === 'srflx') iceStats.srflx++;
+        else if (t === 'relay') iceStats.relay++;
         if (ws && ws.readyState === 1) {
           ws.send(JSON.stringify({ type: 'webrtc-ice', to: remoteId, candidate: e.candidate }));
+        }
+      } else {
+        if (iceStats.relay === 0 && (iceStats.host + iceStats.srflx) > 0) {
+          logError(`ICE: ${iceStats.host}h ${iceStats.srflx}s 0 relay - TURN bloqueado ou freeturn.net offline`);
         }
       }
     };

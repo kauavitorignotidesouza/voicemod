@@ -52,6 +52,8 @@ backend.url=http://localhost:25566
 5. Permita o acesso ao **microfone** quando o navegador pedir
 6. Com outro jogador no mesmo mundo e perto (dentro do raio), ambos conectados ao cliente, a voz funcionará
 
+**Limitação – jogadores em cidades diferentes:** WebRTC depende de TURN (servidores públicos gratuitos). Se falhar, use **Discord** em paralelo para voz. Mesma Wi‑Fi ou mesma cidade tende a funcionar.
+
 ## Backend (Node.js)
 
 ```bash
