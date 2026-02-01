@@ -32,7 +32,8 @@
   const errorLog = [];
   const MAX_ERRORS = 10;
   let pttActive = false;
-  const nearbySeenAt = new Map(); // id -> timestamp (para fallback)
+  const nearbySeenAt = new Map();
+  const pendingIceByPeer = new Map(); // id -> [candidates] (ICE que chega antes do offer)
 
   const WS_URL = (location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + location.host;
   const PTT_KEY = 'v';
@@ -170,9 +171,12 @@
       iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' },
-        { urls: 'turn:freeturn.net:3478', username: 'free', credential: 'free' },
+        { urls: 'stun:stun2.l.google.com:19302' },
+        { urls: 'stun:stun3.l.google.com:19302' },
+        { urls: 'stun:stun4.l.google.com:19302' },
       ]
     });
+    const pendingIce = [];
 
     if (localStream) {
       localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
@@ -197,19 +201,38 @@
       if (pc.connectionState === 'connected') {
         console.log('WebRTC conectado com', remoteId);
       } else if (pc.connectionState === 'failed') {
-        console.warn('WebRTC falhou com', remoteId);
-        logError('WebRTC falhou com ' + remoteId);
+        logError('WebRTC falhou com ' + remoteId + ' (NAT/firewall - tentem mesma rede Wi‑Fi)');
+      }
+    };
+
+    pc.oniceconnectionstatechange = () => {
+      if (pc.iceConnectionState === 'failed') {
+        logError('ICE falhou - ambos na mesma rede Wi-Fi?');
       }
     };
 
     pc.onicecandidate = (e) => {
-      if (e.candidate && ws && ws.readyState === 1) {
-        ws.send(JSON.stringify({ type: 'webrtc-ice', to: remoteId, candidate: e.candidate }));
+      if (e.candidate) {
+        if (ws && ws.readyState === 1) {
+          ws.send(JSON.stringify({ type: 'webrtc-ice', to: remoteId, candidate: e.candidate }));
+        }
       }
     };
 
+    pc._pendingIce = pendingIce;
     peerConnections.set(remoteId, pc);
     return pc;
+  }
+
+  async function addPendingIce(pc, pending) {
+    if (!pc || pc.signalingState === 'closed') return;
+    for (const c of pending) {
+      try {
+        await pc.addIceCandidate(new RTCIceCandidate(c));
+      } catch (err) {
+        console.warn('addIceCandidate:', err);
+      }
+    }
   }
 
   async function handleOffer(fromId, sdp, volume) {
@@ -221,7 +244,10 @@
         remoteAudios.delete(fromId);
       }
       const pc = createPeerConnection(fromId, volume);
+      const pending = (pc._pendingIce || []).concat(pendingIceByPeer.get(fromId) || []);
+      pendingIceByPeer.delete(fromId);
       await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+      await addPendingIce(pc, pending);
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
       if (ws && ws.readyState === 1) {
@@ -235,25 +261,34 @@
 
   async function handleAnswer(fromId, sdp) {
     const pc = peerConnections.get(fromId);
-    if (pc) {
-      try {
-        await pc.setRemoteDescription(new RTCSessionDescription(sdp));
-      } catch (e) {
-        console.warn('Answer error:', e);
-        logError('Answer: ' + e.message);
-      }
+    if (!pc) return;
+    try {
+      await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+      await addPendingIce(pc, pc._pendingIce || []);
+      pc._pendingIce = [];
+    } catch (e) {
+      console.warn('Answer error:', e);
+      logError('Answer: ' + e.message);
     }
   }
 
   async function handleIce(fromId, candidate) {
     const pc = peerConnections.get(fromId);
-    if (pc) {
-      try {
-        await pc.addIceCandidate(new RTCIceCandidate(candidate));
-      } catch (e) {
-        console.warn('ICE candidate error:', e);
-        logError('ICE: ' + e.message);
+    try {
+      if (pc) {
+        if (pc.remoteDescription) {
+          await pc.addIceCandidate(new RTCIceCandidate(candidate));
+        } else {
+          (pc._pendingIce = pc._pendingIce || []).push(candidate);
+        }
+      } else {
+        const arr = pendingIceByPeer.get(fromId) || [];
+        arr.push(candidate);
+        pendingIceByPeer.set(fromId, arr);
       }
+    } catch (e) {
+      console.warn('ICE candidate error:', e);
+      logError('ICE: ' + e.message);
     }
   }
 
@@ -393,6 +428,7 @@
       ws.onclose = () => {
         myPlayerId = null;
         nearbySeenAt.clear();
+        pendingIceByPeer.clear();
         setPTT(false);
         btnPTT.disabled = true;
         setStatus('Desconectado');
