@@ -79,8 +79,19 @@ const wss = new WebSocketServer({ server: httpServer });
 
 // Envia lista de jogadores próximos a um jogador
 function sendNearbyPlayers(playerId, radius = 32) {
-  const me = serverPositions.get(playerId) || clients.get(playerId)?.position;
-  if (!me || me.x == null) return;
+  const client = clients.get(playerId);
+  const me = serverPositions.get(playerId) || client?.position;
+
+  if (!me || me.x == null) {
+    if (client?.ws.readyState === 1) {
+      client.ws.send(JSON.stringify({
+        type: 'nearby',
+        players: [],
+        debug: { hasPosition: false, totalInServer: serverPositions.size },
+      }));
+    }
+    return;
+  }
 
   const { x, y, z, worldId } = me;
   const nearby = [];
@@ -108,7 +119,11 @@ function sendNearbyPlayers(playerId, radius = 32) {
 
   const client = clients.get(playerId);
   if (client?.ws.readyState === 1) {
-    client.ws.send(JSON.stringify({ type: 'nearby', players: nearby }));
+    client.ws.send(JSON.stringify({
+      type: 'nearby',
+      players: nearby,
+      debug: { hasPosition: true, totalInServer: serverPositions.size },
+    }));
   }
 }
 
@@ -127,7 +142,16 @@ wss.on('connection', (ws, req) => {
             username: msg.username || pos?.username || 'Player',
             position: pos ? { x: pos.x, y: pos.y, z: pos.z, worldId: pos.worldId } : null,
           });
-          ws.send(JSON.stringify({ type: 'joined', playerId }));
+          const hasPosition = !!serverPositions.get(playerId);
+          ws.send(JSON.stringify({
+            type: 'joined',
+            playerId,
+            debug: {
+              hasPosition,
+              totalPlayers: serverPositions.size,
+              worldId: pos?.worldId || null,
+            },
+          }));
           sendNearbyPlayers(playerId, msg.radius || 32);
           break;
 

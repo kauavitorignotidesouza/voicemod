@@ -57,7 +57,10 @@
     if (peerConnections.has(remoteId)) return peerConnections.get(remoteId);
 
     const pc = new RTCPeerConnection({
-      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+      ]
     });
 
     if (localStream) {
@@ -67,10 +70,13 @@
     pc.ontrack = (e) => {
       const audio = document.createElement('audio');
       audio.autoplay = true;
+      audio.playsInline = true;
       audio.volume = volume;
       if (e.streams[0]) {
         audio.srcObject = e.streams[0];
       }
+      document.body.appendChild(audio);
+      audio.play().catch(() => {});
       remoteAudios.set(remoteId, audio);
     };
 
@@ -151,7 +157,7 @@
   }
 
   async function connect() {
-    const playerId = playerIdInput.value.trim();
+    const playerId = playerIdInput.value.trim().toLowerCase();
     if (!playerId) {
       setStatus('Digite seu UUID', true);
       return;
@@ -198,13 +204,20 @@
           const msg = JSON.parse(e.data);
           switch (msg.type) {
             case 'joined':
-              setStatus('Conectado! Certifique-se de estar no jogo (Hytale aberto) para detectar jogadores próximos.');
+              const db = msg.debug || {};
+              if (db.hasPosition) {
+                setStatus('Conectado! Posição detectada. ' + (db.totalPlayers || 0) + ' jogador(es) no servidor.');
+              } else {
+                setStatus('Conectado, mas posição não encontrada. Está no jogo? Plugin ativo? Total no servidor: ' + (db.totalPlayers || 0));
+              }
               break;
             case 'nearby':
               updateNearby(msg.players);
               connectToNearby(msg.players);
               if (msg.players && msg.players.length > 0) {
                 setStatus('Conectado. ' + msg.players.length + ' jogador(es) próximo(s) - voz ativa.');
+              } else if (msg.debug && !msg.debug.hasPosition) {
+                setStatus('Posição não detectada. Entre no jogo e verifique /voicemod --acao=status');
               }
               break;
             case 'speaking':
