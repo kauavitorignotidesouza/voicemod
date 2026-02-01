@@ -10,6 +10,7 @@ import com.hypixel.hytale.server.core.modules.entity.component.TransformComponen
 import com.hypixel.hytale.server.core.universe.Universe;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
+import dev.voicemod.backend.PositionBuffer;
 import dev.voicemod.config.VoiceModConfig;
 import dev.voicemod.voice.VoiceSessionManager;
 
@@ -56,6 +57,14 @@ public final class VoiceProximitySystem extends EntityTickingSystem<EntityStore>
         var worldUuid = universePlayerRef.getWorldUuid();
         if (worldUuid == null) return;
 
+        // Armazena posição do listener para o backend (thread do mundo = seguro)
+        PositionBuffer.INSTANCE.put(
+            listenerId.toString(),
+            universePlayerRef.getUsername() != null ? universePlayerRef.getUsername() : "?",
+            listenerPos.getX(), listenerPos.getY(), listenerPos.getZ(),
+            worldUuid.toString()
+        );
+
         for (var playerRef : Universe.get().getPlayers()) {
             if (playerRef.getUuid().equals(listenerId)) continue;
             if (playerRef.getWorldUuid() == null || !playerRef.getWorldUuid().equals(worldUuid)) continue;
@@ -68,6 +77,14 @@ public final class VoiceProximitySystem extends EntityTickingSystem<EntityStore>
 
             var speakerPos = speakerTransform.getPosition();
             if (speakerPos == null) continue;
+
+            // Armazena posição do speaker para o backend
+            PositionBuffer.INSTANCE.put(
+                playerRef.getUuid().toString(),
+                playerRef.getUsername() != null ? playerRef.getUsername() : "?",
+                speakerPos.getX(), speakerPos.getY(), speakerPos.getZ(),
+                worldUuid.toString()
+            );
 
             var distance = listenerPos.distanceTo(speakerPos);
             if (distance <= config.getVoiceRadius()) {

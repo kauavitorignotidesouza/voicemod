@@ -26,6 +26,13 @@ public final class VoiceBackendConnector {
     private final ScheduledExecutorService scheduler;
     private volatile boolean running;
 
+    /** Último envio bem-sucedido (ms) ou 0 se nunca */
+    private volatile long lastSuccessMs;
+    /** Último erro ou null */
+    private volatile String lastError;
+    /** Última quantidade de jogadores enviada */
+    private volatile int lastPlayersSent;
+
     public VoiceBackendConnector(@Nonnull VoiceModConfig config) {
         this.config = config;
         this.httpClient = HttpClient.newBuilder()
@@ -63,23 +70,37 @@ public final class VoiceBackendConnector {
     private void sendPositions() {
         if (!running) return;
         try {
-            var allPlayers = PositionCollector.collectAll();
-            if (allPlayers.isEmpty()) return;
+            var allPlayers = PositionBuffer.INSTANCE.snapshot();
+            if (allPlayers.isEmpty()) {
+                lastError = "Buffer vazio";
+                return;
+            }
 
             var json = buildJson(allPlayers);
             var url = config.getBackendUrl().replaceAll("/$", "") + "/positions";
             var request = HttpRequest.newBuilder()
                 .uri(URI.create(url))
                 .header("Content-Type", "application/json")
-                .timeout(Duration.ofSeconds(3))
+                .timeout(Duration.ofSeconds(15))
                 .POST(HttpRequest.BodyPublishers.ofString(json, StandardCharsets.UTF_8))
                 .build();
 
-            httpClient.send(request, HttpResponse.BodyHandlers.discarding());
+            var response = httpClient.send(request, HttpResponse.BodyHandlers.discarding());
+            if (response.statusCode() >= 200 && response.statusCode() < 300) {
+                lastSuccessMs = System.currentTimeMillis();
+                lastPlayersSent = allPlayers.size();
+                lastError = null;
+            } else {
+                lastError = "HTTP " + response.statusCode();
+            }
         } catch (Exception e) {
-            // Silencioso - backend pode não estar rodando
+            lastError = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
         }
     }
+
+    public long getLastSuccessMs() { return lastSuccessMs; }
+    public String getLastError() { return lastError; }
+    public int getLastPlayersSent() { return lastPlayersSent; }
 
     private String buildJson(List<Map<String, Object>> players) {
         var sb = new StringBuilder();
