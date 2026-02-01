@@ -174,6 +174,8 @@
         { urls: 'stun:stun2.l.google.com:19302' },
         { urls: 'stun:stun3.l.google.com:19302' },
         { urls: 'stun:stun4.l.google.com:19302' },
+        { urls: 'turn:freeturn.net:3478', username: 'free', credential: 'free' },
+        { urls: 'turns:freeturn.net:5349', username: 'free', credential: 'free' },
       ]
     });
     const pendingIce = [];
@@ -201,7 +203,7 @@
       if (pc.connectionState === 'connected') {
         console.log('WebRTC conectado com', remoteId);
       } else if (pc.connectionState === 'failed') {
-        logError('WebRTC falhou com ' + remoteId + ' (NAT/firewall - tentem mesma rede Wi‑Fi)');
+        logError('WebRTC falhou - redes diferentes. TURN pode estar lento; aguarde ou usem mesma Wi‑Fi.');
       }
     };
 
