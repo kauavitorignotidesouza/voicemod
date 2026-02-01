@@ -208,7 +208,10 @@
               if (db.hasPosition) {
                 setStatus('Conectado! Posição detectada. ' + (db.totalPlayers || 0) + ' jogador(es) no servidor.');
               } else {
-                setStatus('Conectado, mas posição não encontrada. Está no jogo? Plugin ativo? Total no servidor: ' + (db.totalPlayers || 0));
+                const hint = db.totalPlayers === 0
+                  ? 'Plugin não está enviando. Verifique: jogo aberto, /voicemod --acao=status'
+                  : 'Seu UUID pode não bater. Abra /status no navegador para ver os IDs recebidos.';
+                setStatus('Posição não encontrada. ' + hint + ' (Total: ' + (db.totalPlayers || 0) + ')');
               }
               break;
             case 'nearby':
@@ -217,7 +220,8 @@
               if (msg.players && msg.players.length > 0) {
                 setStatus('Conectado. ' + msg.players.length + ' jogador(es) próximo(s) - voz ativa.');
               } else if (msg.debug && !msg.debug.hasPosition) {
-                setStatus('Posição não detectada. Entre no jogo e verifique /voicemod --acao=status');
+                const url = location.origin + '/status';
+                setStatus('Posição não detectada. Abra ' + url + ' para ver os IDs que o backend recebeu.');
               }
               break;
             case 'speaking':

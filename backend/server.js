@@ -32,11 +32,14 @@ const httpServer = createServer((req, res) => {
         if (data.players && Array.isArray(data.players)) {
           serverPositions.clear();
           for (const p of data.players) {
-            serverPositions.set(p.playerId, {
-              x: p.x, y: p.y, z: p.z,
-              worldId: p.worldId || 'default',
-              username: p.username || 'Player',
-            });
+            const id = (p.playerId || '').toString().toLowerCase().trim();
+            if (id) {
+              serverPositions.set(id, {
+                x: p.x, y: p.y, z: p.z,
+                worldId: (p.worldId || 'default').toString(),
+                username: (p.username || 'Player').toString(),
+              });
+            }
           }
         }
         res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -46,6 +49,14 @@ const httpServer = createServer((req, res) => {
         res.end(JSON.stringify({ error: e.message }));
       }
     });
+    return;
+  }
+
+  // GET /status - debug: mostra jogadores que o backend recebeu do plugin
+  if (req.method === 'GET' && req.url === '/status') {
+    const ids = [...serverPositions.keys()];
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ count: ids.length, playerIds: ids }));
     return;
   }
 
@@ -134,7 +145,7 @@ wss.on('connection', (ws, req) => {
       const msg = JSON.parse(raw.toString());
       switch (msg.type) {
         case 'join':
-          playerId = msg.playerId;
+          playerId = (msg.playerId || '').toString().toLowerCase().trim();
           const pos = serverPositions.get(playerId);
           clients.set(playerId, {
             ws,
