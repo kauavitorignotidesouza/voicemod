@@ -6,21 +6,120 @@
   const usernameInput = document.getElementById('username');
   const btnConnect = document.getElementById('btnConnect');
   const btnDisconnect = document.getElementById('btnDisconnect');
+  const btnPTT = document.getElementById('btnPTT');
+  const pttStatusEl = document.getElementById('pttStatus');
   const statusEl = document.getElementById('status');
   const nearbyList = document.getElementById('nearbyList');
+  const statusPanelToggle = document.getElementById('statusPanelToggle');
+  const statusPanelContent = document.getElementById('statusPanelContent');
+  const micStatusEl = document.getElementById('micStatus');
+  const micLevelEl = document.getElementById('micLevel');
+  const micMeterEl = document.getElementById('micMeter');
+  const wsStatusEl = document.getElementById('wsStatus');
+  const webrtcStatusEl = document.getElementById('webrtcStatus');
+  const errorLogEl = document.getElementById('errorLog');
+  const btnTestMic = document.getElementById('btnTestMic');
 
   let ws = null;
   let myPlayerId = null;
   let localStream = null;
-  const peerConnections = new Map(); // playerId -> RTCPeerConnection
-  const remoteAudios = new Map();    // playerId -> HTMLAudioElement
-  let lastNearby = [];               // para volume no offer
+  let audioContext = null;
+  let analyserNode = null;
+  let meterRAF = null;
+  const peerConnections = new Map();
+  const remoteAudios = new Map();
+  let lastNearby = [];
+  const errorLog = [];           // últimos erros
+  const MAX_ERRORS = 10;
+  let pttActive = false;
 
   const WS_URL = (location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + location.host;
+  const PTT_KEY = 'v';
+
+  function logError(msg) {
+    const t = new Date().toLocaleTimeString();
+    errorLog.push(`[${t}] ${msg}`);
+    if (errorLog.length > MAX_ERRORS) errorLog.shift();
+    errorLogEl.textContent = errorLog.length ? errorLog.join('\n') : 'Nenhum erro';
+    errorLogEl.scrollTop = errorLogEl.scrollHeight;
+  }
+
+  function setMicStatus(text, ok = true) {
+    micStatusEl.textContent = text;
+    micStatusEl.className = ok ? 'ok' : 'err';
+  }
+
+  function updateStatusPanel() {
+    if (ws) {
+      wsStatusEl.textContent = ws.readyState === 1 ? 'Conectado' : ws.readyState === 0 ? 'Conectando...' : 'Desconectado';
+      wsStatusEl.className = ws.readyState === 1 ? 'ok' : 'err';
+    } else {
+      wsStatusEl.textContent = 'Desconectado';
+      wsStatusEl.className = '';
+    }
+    let connected = 0;
+    peerConnections.forEach(pc => { if (pc.connectionState === 'connected') connected++; });
+    webrtcStatusEl.textContent = connected + ' de ' + peerConnections.size + ' conexões';
+    webrtcStatusEl.className = connected > 0 ? 'ok' : peerConnections.size > 0 ? 'warn' : '';
+  }
+
+  function startMeter() {
+    if (!localStream || analyserNode) return;
+    try {
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const src = audioContext.createMediaStreamSource(localStream);
+      analyserNode = audioContext.createAnalyser();
+      analyserNode.fftSize = 256;
+      analyserNode.smoothingTimeConstant = 0.8;
+      src.connect(analyserNode);
+      const data = new Uint8Array(analyserNode.frequencyBinCount);
+
+      function tick() {
+        if (!analyserNode) return;
+        analyserNode.getByteFrequencyData(data);
+        let sum = 0;
+        for (let i = 0; i < data.length; i++) sum += data[i];
+        const avg = sum / data.length;
+        const pct = Math.min(100, Math.round(avg));
+        micMeterEl.style.width = pct + '%';
+        micMeterEl.classList.toggle('active', pct > 10);
+        micLevelEl.textContent = pct + '%';
+        meterRAF = requestAnimationFrame(tick);
+      }
+      tick();
+    } catch (e) {
+      micLevelEl.textContent = '—';
+      logError('Meter: ' + e.message);
+    }
+  }
+
+  function stopMeter() {
+    if (meterRAF) cancelAnimationFrame(meterRAF);
+    meterRAF = null;
+    analyserNode = null;
+    if (audioContext) audioContext.close().catch(() => {});
+    audioContext = null;
+    micMeterEl.style.width = '0%';
+    micLevelEl.textContent = '—';
+  }
+
+  function setPTT(active) {
+    if (pttActive === active) return;
+    pttActive = active;
+    if (localStream) {
+      localStream.getAudioTracks().forEach(t => { t.enabled = active; });
+    }
+    btnPTT.classList.toggle('talking', active);
+    pttStatusEl.textContent = active ? 'Falando...' : '';
+    if (active) pttStatusEl.className = 'ok';
+    else pttStatusEl.className = '';
+  }
 
   function setStatus(msg, isError = false) {
     statusEl.textContent = msg;
     statusEl.className = isError ? 'error' : (ws && ws.readyState === 1 ? 'connected' : '');
+    if (isError) logError(msg);
+    updateStatusPanel();
   }
 
   function updateNearby(players) {
@@ -44,11 +143,20 @@
   }
 
   async function initMicrophone() {
-    if (localStream) return localStream;
+    if (localStream) {
+      setMicStatus('Conectado');
+      startMeter();
+      return localStream;
+    }
     try {
       localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      setMicStatus('Conectado');
+      startMeter();
+      localStream.getAudioTracks().forEach(t => { t.enabled = false; }); // PTT: mudo por padrão
       return localStream;
     } catch (e) {
+      setMicStatus('Erro: ' + e.message, false);
+      logError('Microfone: ' + e.message);
       setStatus('Erro ao acessar microfone: ' + e.message, true);
       throw e;
     }
@@ -84,10 +192,12 @@
     };
 
     pc.onconnectionstatechange = () => {
+      updateStatusPanel();
       if (pc.connectionState === 'connected') {
         console.log('WebRTC conectado com', remoteId);
       } else if (pc.connectionState === 'failed') {
         console.warn('WebRTC falhou com', remoteId);
+        logError('WebRTC falhou com ' + remoteId);
       }
     };
 
@@ -112,6 +222,7 @@
       }
     } catch (e) {
       console.warn('Offer error:', e);
+      logError('Offer: ' + e.message);
     }
   }
 
@@ -122,6 +233,7 @@
         await pc.setRemoteDescription(new RTCSessionDescription(sdp));
       } catch (e) {
         console.warn('Answer error:', e);
+        logError('Answer: ' + e.message);
       }
     }
   }
@@ -133,6 +245,7 @@
         await pc.addIceCandidate(new RTCIceCandidate(candidate));
       } catch (e) {
         console.warn('ICE candidate error:', e);
+        logError('ICE: ' + e.message);
       }
     }
   }
@@ -212,6 +325,8 @@
         setStatus('Conectado! Aguardando jogadores próximos...');
         btnConnect.style.display = 'none';
         btnDisconnect.style.display = 'block';
+        btnPTT.disabled = false;
+        updateStatusPanel();
       };
 
       ws.onmessage = (e) => {
@@ -262,16 +377,24 @@
 
       ws.onclose = () => {
         myPlayerId = null;
+        setPTT(false);
+        btnPTT.disabled = true;
         setStatus('Desconectado');
         btnConnect.disabled = false;
         btnConnect.style.display = 'block';
         btnDisconnect.style.display = 'none';
+        stopMeter();
+        setMicStatus('—');
         peerConnections.forEach(pc => pc.close());
         peerConnections.clear();
         remoteAudios.clear();
+        updateStatusPanel();
       };
 
-      ws.onerror = () => setStatus('Erro de conexão', true);
+      ws.onerror = () => {
+        logError('WebSocket');
+        setStatus('Erro de conexão', true);
+      };
 
     } catch (e) {
       setStatus('Erro: ' + e.message, true);
@@ -289,6 +412,48 @@
   btnConnect.onclick = connect;
   btnDisconnect.onclick = disconnect;
 
-  // Permitir Enter no campo UUID
+  // Push-to-talk
+  btnPTT.addEventListener('mousedown', (e) => { e.preventDefault(); setPTT(true); });
+  btnPTT.addEventListener('mouseup', () => setPTT(false));
+  btnPTT.addEventListener('mouseleave', () => setPTT(false));
+  btnPTT.addEventListener('touchstart', (e) => { e.preventDefault(); setPTT(true); });
+  btnPTT.addEventListener('touchend', () => setPTT(false));
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key.toLowerCase() === PTT_KEY && !e.repeat && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
+      e.preventDefault();
+      setPTT(true);
+    }
+  });
+  document.addEventListener('keyup', (e) => {
+    if (e.key.toLowerCase() === PTT_KEY && !e.repeat) setPTT(false);
+  });
+
+  statusPanelToggle.onclick = () => {
+    const open = statusPanelContent.style.display !== 'none';
+    statusPanelContent.style.display = open ? 'none' : 'block';
+    statusPanelToggle.textContent = 'Status e diagnóstico ' + (open ? '▶' : '▼');
+  };
+
+  btnTestMic.onclick = async () => {
+    if (localStream) {
+      setMicStatus('Conectado (já em uso)');
+      startMeter();
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      localStream = stream;
+      setMicStatus('Conectado');
+      startMeter();
+      stream.getAudioTracks().forEach(t => { t.enabled = false; });
+      errorLog.length = 0;
+      errorLogEl.textContent = 'Microfone OK. Clique em Conectar para usar.';
+    } catch (e) {
+      setMicStatus('Erro: ' + e.message, false);
+      logError('Microfone: ' + e.message);
+    }
+  };
+
   playerIdInput.onkeypress = (e) => { if (e.key === 'Enter') connect(); };
 })();

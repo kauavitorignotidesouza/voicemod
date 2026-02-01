@@ -69,6 +69,38 @@
       align-items: center;
     }
     .volume { font-size: 0.8rem; color: #888; }
+    .ptt-section { margin-top: 1rem; }
+    .ptt-section h3 { color: #00d9ff; font-size: 1rem; margin-bottom: 0.5rem; }
+    .btnPTT {
+      padding: 0.6rem 1rem;
+      background: #333;
+      color: #fff;
+      border: 2px solid #555;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.95rem;
+      user-select: none;
+    }
+    .btnPTT:hover:not(:disabled) { background: #444; border-color: #00d9ff; }
+    .btnPTT:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btnPTT.talking { background: #ff4757; border-color: #ff6b7a; color: #fff; }
+    .pttStatus { margin-left: 0.5rem; font-size: 0.85rem; color: #888; }
+    .status-panel {
+      margin-top: 1rem;
+      padding: 0.8rem;
+      background: #0f0f1a;
+      border-radius: 6px;
+      border: 1px solid #222;
+    }
+    .status-panel h3 { color: #00d9ff; font-size: 0.95rem; margin: 0 0 0.5rem; cursor: pointer; }
+    .status-panel .content { font-size: 0.8rem; color: #aaa; line-height: 1.6; }
+    .status-panel .content .ok { color: #2ecc71; }
+    .status-panel .content .err { color: #ff4757; }
+    .status-panel .content .warn { color: #f1c40f; }
+    .meter-bar { height: 6px; background: #222; border-radius: 3px; overflow: hidden; margin: 0.3rem 0; }
+    .meter-fill { height: 100%; background: #00d9ff; width: 0%; transition: width 0.1s; }
+    .meter-fill.active { background: #2ecc71; }
+    .error-log { max-height: 80px; overflow-y: auto; font-family: monospace; font-size: 0.75rem; color: #ff6b6b; }
   </style>
 </head>
 <body>
@@ -85,10 +117,31 @@
   <button id="btnConnect">Conectar</button>
   <button id="btnDisconnect">Desconectar</button>
 
+  <div class="ptt-section">
+    <h3>Push-to-Talk</h3>
+    <button id="btnPTT" class="btnPTT" disabled>Segure para falar (V)</button>
+    <span id="pttStatus" class="pttStatus"></span>
+  </div>
+
   <div id="status"></div>
   <div id="nearby">
     <h3>Jogadores próximos</h3>
     <ul id="nearbyList"></ul>
+  </div>
+
+    <div class="status-panel">
+    <h3 id="statusPanelToggle">Status e diagnóstico ▼</h3>
+    <button id="btnTestMic" style="margin-bottom:0.5rem;padding:0.3rem 0.6rem;font-size:0.8rem;background:#333;color:#fff;border:1px solid #555;border-radius:4px;cursor:pointer">Testar microfone</button>
+    <div id="statusPanelContent" class="content">
+      <div>Microfone: <span id="micStatus">—</span></div>
+      <div>Nível: <span id="micLevel">—</span>
+        <div class="meter-bar"><div id="micMeter" class="meter-fill"></div></div>
+      </div>
+      <div>WebSocket: <span id="wsStatus">Desconectado</span></div>
+      <div>WebRTC: <span id="webrtcStatus">0 conexões</span></div>
+      <div style="margin-top:0.5rem">Erros:</div>
+      <div id="errorLog" class="error-log">Nenhum erro</div>
+    </div>
   </div>
 
   <script src="app.js"></script>
