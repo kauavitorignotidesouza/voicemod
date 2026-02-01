@@ -49,6 +49,13 @@ const httpServer = createServer((req, res) => {
     return;
   }
 
+  // favicon.ico - evita 404 no console
+  if (req.url === '/favicon.ico') {
+    res.writeHead(204);
+    res.end();
+    return;
+  }
+
   // Servir cliente web
   let path = req.url === '/' ? '/index.html' : req.url;
   const filePath = join(__dirname, 'public', path);

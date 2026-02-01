@@ -85,23 +85,39 @@
   }
 
   async function handleOffer(fromId, sdp, volume) {
-    const pc = createPeerConnection(fromId, volume);
-    await pc.setRemoteDescription(new RTCSessionDescription(sdp));
-    const answer = await pc.createAnswer();
-    await pc.setLocalDescription(answer);
-    if (ws && ws.readyState === 1) {
-      ws.send(JSON.stringify({ type: 'webrtc-answer', to: fromId, sdp: answer }));
+    try {
+      const pc = createPeerConnection(fromId, volume);
+      await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+      if (ws && ws.readyState === 1) {
+        ws.send(JSON.stringify({ type: 'webrtc-answer', to: fromId, sdp: answer }));
+      }
+    } catch (e) {
+      console.warn('Offer error:', e);
     }
   }
 
   async function handleAnswer(fromId, sdp) {
     const pc = peerConnections.get(fromId);
-    if (pc) await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+    if (pc) {
+      try {
+        await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+      } catch (e) {
+        console.warn('Answer error:', e);
+      }
+    }
   }
 
-  function handleIce(fromId, candidate) {
+  async function handleIce(fromId, candidate) {
     const pc = peerConnections.get(fromId);
-    if (pc) pc.addIceCandidate(new RTCIceCandidate(candidate));
+    if (pc) {
+      try {
+        await pc.addIceCandidate(new RTCIceCandidate(candidate));
+      } catch (e) {
+        console.warn('ICE candidate error:', e);
+      }
+    }
   }
 
   async function connectToNearby(nearby) {
@@ -150,16 +166,28 @@
     setStatus('Conectando...');
     btnConnect.disabled = true;
 
+    // Fecha conexão anterior se existir
+    if (ws) {
+      ws.close();
+      ws = null;
+    }
+
     try {
       ws = new WebSocket(WS_URL);
 
       ws.onopen = () => {
-        ws.send(JSON.stringify({
-          type: 'join',
-          playerId,
-          username: usernameInput.value.trim() || 'Player',
-          radius: 32
-        }));
+        // setTimeout evita "Still in CONNECTING state" em alguns navegadores
+        const socket = ws;
+        setTimeout(() => {
+          if (socket && socket.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify({
+              type: 'join',
+              playerId,
+              username: usernameInput.value.trim() || 'Player',
+              radius: 32
+            }));
+          }
+        }, 0);
         setStatus('Conectado! Aguardando jogadores próximos...');
         btnConnect.style.display = 'none';
         btnDisconnect.style.display = 'block';
@@ -170,11 +198,14 @@
           const msg = JSON.parse(e.data);
           switch (msg.type) {
             case 'joined':
-              setStatus('Conectado como ' + playerId);
+              setStatus('Conectado! Certifique-se de estar no jogo (Hytale aberto) para detectar jogadores próximos.');
               break;
             case 'nearby':
               updateNearby(msg.players);
               connectToNearby(msg.players);
+              if (msg.players && msg.players.length > 0) {
+                setStatus('Conectado. ' + msg.players.length + ' jogador(es) próximo(s) - voz ativa.');
+              }
               break;
             case 'speaking':
               break;
@@ -185,7 +216,7 @@
               handleAnswer(msg.from, msg.sdp);
               break;
             case 'webrtc-ice':
-              handleIce(msg.from, msg.candidate);
+              handleIce(msg.from, msg.candidate).catch(() => {});
               break;
             case 'error':
               setStatus('Erro: ' + msg.message, true);
