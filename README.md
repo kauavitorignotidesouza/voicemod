@@ -18,10 +18,11 @@ Ver `REVISAO_PROJETO.md` para análise completa.
 
 ## Comandos
 
-- `/voicemod` ou `/voicemod help` - Ajuda
-- `/voicemod status` - Status
-- `/voicemod reload` - Recarrega config
-- `/voicemod raio --blocos 32` - Define raio (4-128 blocos)
+- `/voicemod` ou `/voicemod --acao=help` - Ajuda
+- `/voicemod --acao=status` - Status
+- `/voicemod --acao=uuid` - Mostra seu UUID (para o cliente de voz)
+- `/voicemod --acao=reload` - Recarrega config
+- `/voicemod --acao=raio --blocos=32` - Define raio (4-128 blocos)
 
 ## Build
 
@@ -42,12 +43,14 @@ websocket.port=25566
 backend.url=http://localhost:25566
 ```
 
-## Como conectar Plugin + Backend
+## Como usar o Voice Chat
 
-1. **Inicie o backend primeiro**: `cd backend && npm install && npm start`
-2. **Inicie o servidor Hytale** com o plugin na pasta `mods/`
-3. O plugin envia posições automaticamente para `backend.url` a cada 100ms
-4. Clientes conectam via WebSocket em `ws://localhost:25566`, enviam `join` com `playerId` (UUID do jogador)
+1. **Plugin e Backend** – Servidor Hytale com plugin + backend no Render já configurados
+2. **No jogo**, use `/voicemod --acao=uuid` para ver seu UUID
+3. **Abra o cliente** em: https://voicemod.onrender.com
+4. Cole seu UUID e clique em **Conectar**
+5. Permita o acesso ao **microfone** quando o navegador pedir
+6. Com outro jogador no mesmo mundo e perto (dentro do raio), ambos conectados ao cliente, a voz funcionará
 
 ## Backend (Node.js)
 
@@ -55,5 +58,6 @@ backend.url=http://localhost:25566
 cd backend && npm install && npm start
 ```
 
+- **GET /** – Cliente web de voz (página com formulário)
 - **POST /positions** – Plugin envia posições dos jogadores
-- **WebSocket** – Clientes enviam `join`, `speaking`; recebem `nearby` com jogadores próximos e volumes
+- **WebSocket** – Clientes enviam `join`; recebem `nearby` e fazem signaling WebRTC para voz

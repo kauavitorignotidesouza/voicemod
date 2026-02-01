@@ -24,7 +24,7 @@ public final class VoiceModCommand extends AbstractCommand {
     public VoiceModCommand(VoiceModPlugin plugin) {
         super("voicemod", "Configura o voice chat com proximidade e áudio 3D");
         this.plugin = plugin;
-        this.subArg = withDefaultArg("acao", "help|raio|status|reload", ArgTypes.STRING, "help", "padrão: help");
+        this.subArg = withDefaultArg("acao", "help|raio|status|reload|uuid", ArgTypes.STRING, "help", "padrão: help");
         this.blocosArg = withOptionalArg("blocos", "Raio em blocos (4-128) para raio", ArgTypes.INTEGER);
         addAliases("vm");
     }
@@ -45,6 +45,7 @@ public final class VoiceModCommand extends AbstractCommand {
             case "raio", "radius" -> handleRadius(context, sender);
             case "status" -> handleStatus(context, sender);
             case "reload" -> handleReload(context, sender);
+            case "uuid" -> handleUuid(context, sender);
             default -> handleHelp(context, sender);
         };
     }
@@ -55,6 +56,18 @@ public final class VoiceModCommand extends AbstractCommand {
         sender.sendMessage(Message.raw("§e/voicemod raio [--blocos N] §7- Raio atual: " + cfg.getVoiceRadius()));
         sender.sendMessage(Message.raw("§e/voicemod status §7- Mostra status"));
         sender.sendMessage(Message.raw("§e/voicemod reload §7- Recarrega config"));
+        sender.sendMessage(Message.raw("§e/voicemod uuid §7- Mostra seu UUID para o cliente de voz"));
+        return CompletableFuture.completedFuture(null);
+    }
+
+    private CompletableFuture<Void> handleUuid(CommandContext context, com.hypixel.hytale.server.core.command.system.CommandSender sender) {
+        var uuid = sender.getUuid();
+        if (uuid != null) {
+            sender.sendMessage(Message.raw("§aSeu UUID: §f" + uuid.toString()));
+            sender.sendMessage(Message.raw("§7Use no cliente de voz: §fhttps://voicemod.onrender.com"));
+        } else {
+            sender.sendMessage(Message.raw("§cNão foi possível obter seu UUID."));
+        }
         return CompletableFuture.completedFuture(null);
     }
 

@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VoiceMod - Cliente de Voz</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      max-width: 480px;
+      margin: 2rem auto;
+      padding: 1rem;
+      background: #1a1a2e;
+      color: #eee;
+      min-height: 100vh;
+    }
+    h1 { color: #00d9ff; margin-bottom: 0.5rem; }
+    .sub { color: #888; font-size: 0.9rem; margin-bottom: 1.5rem; }
+    label { display: block; margin: 0.8rem 0 0.3rem; color: #aaa; }
+    input {
+      width: 100%;
+      padding: 0.6rem;
+      border: 1px solid #333;
+      border-radius: 6px;
+      background: #0f0f1a;
+      color: #fff;
+      font-size: 0.95rem;
+    }
+    button {
+      width: 100%;
+      padding: 0.8rem;
+      margin-top: 1rem;
+      border: none;
+      border-radius: 6px;
+      font-size: 1rem;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    #btnConnect {
+      background: #00d9ff;
+      color: #1a1a2e;
+    }
+    #btnConnect:disabled { background: #444; color: #888; cursor: not-allowed; }
+    #btnDisconnect {
+      background: #ff4757;
+      color: #fff;
+      display: none;
+    }
+    #status {
+      margin-top: 1rem;
+      padding: 0.8rem;
+      border-radius: 6px;
+      background: #0f0f1a;
+      font-size: 0.9rem;
+    }
+    #status.connected { border-left: 4px solid #00d9ff; }
+    #status.error { border-left: 4px solid #ff4757; }
+    #nearby { margin-top: 1rem; }
+    #nearby h3 { color: #00d9ff; font-size: 1rem; margin-bottom: 0.5rem; }
+    #nearbyList { list-style: none; padding: 0; margin: 0; }
+    #nearbyList li {
+      padding: 0.5rem;
+      margin: 0.3rem 0;
+      background: #0f0f1a;
+      border-radius: 4px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .volume { font-size: 0.8rem; color: #888; }
+  </style>
+</head>
+<body>
+  <h1>VoiceMod</h1>
+  <p class="sub">Cliente de voz com proximidade para Hytale</p>
+
+  <label>Seu UUID (use /voicemod uuid no jogo)</label>
+  <input type="text" id="playerId" placeholder="ex: d9ed1b31-336f-43c5-a447-654a1c63bebd">
+
+  <label>Seu nome (opcional)</label>
+  <input type="text" id="username" placeholder="Seu nickname">
+
+  <button id="btnConnect">Conectar</button>
+  <button id="btnDisconnect">Desconectar</button>
+
+  <div id="status"></div>
+  <div id="nearby">
+    <h3>Jogadores próximos</h3>
+    <ul id="nearbyList"></ul>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
